@@ -8,8 +8,12 @@ function rpbg_generate_blog_content( $pdf_path, $paper_link ) {
     // Extract text from the first page of the PDF
     $first_page_text = rpbg_extract_first_page_text( $pdf_path );
     
-    // Retrieve the custom prompt from settings with a default fallback.
-    $stored_prompt = get_option('rpbg_generation_prompt', 'Using the following research paper excerpt:' . "\n\n%s\n\n" . 'Generate a human-like, engaging, SEO-optimized blog article including a proper excerpt and comma separated tags. End the article with "Read the full paper here: %s".');
+    // Detailed default prompt instructing the model to output JSON
+    $default_prompt = "Using the following research paper excerpt:\n\n```\n%s\n```\n\nPlease generate an output in JSON format with the following keys:\n- \"title\": A catchy blog post title (max 10 words).\n- \"article\": A well-structured, human-like, engaging blog article that is SEO-optimized. Use proper HTML formatting for paragraphs and headings.\n- \"excerpt\": A short excerpt (around 40 words) summarizing the article.\n- \"tags\": A comma-separated list of relevant SEO-friendly tags.\n- \"socialMediaDescription\": A compelling, human-like description for sharing on social media.\n\nEnd the output with the following string: \"Read the full paper here: %s\".";
+    
+    // Retrieve the custom prompt from settings, defaulting to our detailed prompt if not set
+    $stored_prompt = get_option( 'rpbg_generation_prompt', $default_prompt );
+    
     $prompt = sprintf( $stored_prompt, $first_page_text, $paper_link );
     
     $api_key = get_option( 'rpbg_openai_api_key' );
@@ -24,7 +28,7 @@ function rpbg_generate_blog_content( $pdf_path, $paper_link ) {
         ),
         'body'    => json_encode( array(
             'prompt'      => $prompt,
-            'max_tokens'  => 400,
+            'max_tokens'  => 800,
             'temperature' => 0.7,
         ) ),
         'timeout' => 60,
