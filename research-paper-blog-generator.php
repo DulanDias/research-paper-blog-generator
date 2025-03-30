@@ -100,19 +100,27 @@ function rpbg_process_pending_papers() {
             }
             // Generate a catchy topic/title
             $post_title = rpbg_generate_topic( $blog_content );
-            // Create the blog post
+            // Generate excerpt and tags
+            $post_excerpt = rpbg_generate_excerpt( $blog_content );
+            $post_tags    = rpbg_generate_tags( $blog_content );
+            $default_categories = rpbg_get_default_categories();
+
+            // Create the blog post with default categories, excerpt, and tags
             $post_id = wp_insert_post( array(
-                'post_title'   => sanitize_text_field( $post_title ),
-                'post_content' => wp_kses_post( $blog_content ),
-                'post_status'  => 'publish',
-                'post_type'    => 'post'
+                'post_title'    => sanitize_text_field( $post_title ),
+                'post_content'  => wp_kses_post( $blog_content ),
+                'post_excerpt'  => wp_strip_all_tags( $post_excerpt ),
+                'post_status'   => 'publish',
+                'post_type'     => 'post',
+                'post_category' => $default_categories,
+                'tags_input'    => $post_tags,
             ) );
             if ( $post_id ) {
-                // Set the featured image from the PDF
+                // Set featured image using extracted image from the paper
                 rpbg_set_featured_image( $post_id, $paper->file_path );
-                // Post to social media (stub functions; implement according to API docs)
+                // Post to social media
                 rpbg_post_to_social_media( $post_id, $blog_content );
-                // Update research paper record as published
+                // Mark paper as published.
                 rpbg_update_paper_status( $paper->id, 'published', $post_id );
             } else {
                 rpbg_update_paper_status( $paper->id, 'error' );

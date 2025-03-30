@@ -82,13 +82,20 @@ function rpbg_handle_generate_paper() {
 
     // Generate a catchy topic/title
     $post_title = rpbg_generate_topic( $blog_content );
+    // Generate excerpt and tags
+    $post_excerpt = rpbg_generate_excerpt( $blog_content );
+    $post_tags    = rpbg_generate_tags( $blog_content );
+    $default_categories = rpbg_get_default_categories();
 
-    // Insert the blog post into WordPress
+    // Insert the blog post into WordPress with default categories, excerpt, and tags
     $post_id = wp_insert_post( array(
-        'post_title'   => sanitize_text_field( $post_title ),
-        'post_content' => wp_kses_post( $blog_content ),
-        'post_status'  => 'publish',
-        'post_type'    => 'post'
+        'post_title'    => sanitize_text_field( $post_title ),
+        'post_content'  => wp_kses_post( $blog_content ),
+        'post_excerpt'  => wp_strip_all_tags( $post_excerpt ),
+        'post_status'   => 'publish',
+        'post_type'     => 'post',
+        'post_category' => $default_categories,
+        'tags_input'    => $post_tags,
     ) );
 
     if ( $post_id ) {
