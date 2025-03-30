@@ -11,6 +11,9 @@ function rpbg_register_settings() {
     // Generation prompt setting with a default prompt
     register_setting( 'rpbg_settings_group', 'rpbg_generation_prompt' );
     
+    // OpenAI Model setting (default "davinci")
+    register_setting( 'rpbg_settings_group', 'rpbg_openai_model' );
+    
     // Scheduler settings
     register_setting( 'rpbg_scheduler_options_group', 'rpbg_processing_frequency' );
     register_setting( 'rpbg_scheduler_options_group', 'rpbg_processing_time' );

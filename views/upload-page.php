@@ -12,6 +12,20 @@
         <th scope="row"><label for="paper_link">Paper Link (optional)</label></th>
         <td><input type="url" name="paper_link" id="paper_link" /></td>
       </tr>
+      <tr valign="top">
+        <th scope="row"><label for="rpbg_categories">Select Categories</label></th>
+        <td>
+          <select name="rpbg_categories[]" id="rpbg_categories" multiple style="min-width:200px;">
+            <?php 
+              $all_categories = get_categories( array( 'hide_empty' => false ) );
+              foreach ( $all_categories as $cat ) {
+                echo '<option value="' . esc_attr( $cat->name ) . '">' . esc_html( $cat->name ) . '</option>';
+              }
+            ?>
+          </select>
+          <p class="description">Hold Ctrl (Cmd on Mac) to select multiple categories. If none selected, default categories will be used.</p>
+        </td>
+      </tr>
     </table>
     <?php submit_button( 'Upload Paper' ); ?>
   </form>

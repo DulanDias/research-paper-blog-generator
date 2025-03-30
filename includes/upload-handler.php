@@ -26,10 +26,21 @@ function rpbg_handle_upload() {
     }
 
     $paper_link = isset( $_POST['paper_link'] ) ? esc_url_raw( $_POST['paper_link'] ) : '';
-    rpbg_save_research_paper( $file_path, $paper_link );
+    
+    // Process category selection.
+    $selected_categories = array();
+    if ( isset( $_POST['rpbg_categories'] ) && is_array( $_POST['rpbg_categories'] ) ) {
+        $selected_categories = array_map( 'sanitize_text_field', $_POST['rpbg_categories'] );
+    }
+    $categories_str = ! empty( $selected_categories ) ? implode( ',', $selected_categories ) : '';
+    
+    // Save the research paper record (including categories).
+    rpbg_save_research_paper( $file_path, $paper_link, $categories_str );
+
     wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
     exit;
 }
+?>
 
 add_action( 'admin_post_rpbg_delete_paper', 'rpbg_handle_delete_paper' );
 function rpbg_handle_delete_paper() {

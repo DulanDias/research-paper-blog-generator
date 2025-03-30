@@ -3,33 +3,36 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Save a new research paper record
-function rpbg_save_research_paper( $file_path, $paper_link ) {
+function rpbg_save_research_paper( $file_path, $paper_link, $categories = '' ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
     $wpdb->insert( $table_name, array(
         'file_path'   => sanitize_text_field( $file_path ),
         'paper_link'  => esc_url_raw( $paper_link ),
-        'status'      => 'pending'
+        'status'      => 'pending',
+        'categories'  => sanitize_text_field( $categories ),
     ) );
     return $wpdb->insert_id;
 }
 
-// Retrieve pending research papers
 function rpbg_get_pending_papers() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
     return $wpdb->get_results( "SELECT * FROM $table_name WHERE status = 'pending'" );
 }
 
-// Retrieve all research papers for admin listing
 function rpbg_get_all_research_papers() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
     return $wpdb->get_results( "SELECT * FROM $table_name ORDER BY created_at DESC" );
 }
 
-// Update paper status (and optionally blog post ID)
+function rpbg_get_approved_papers() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'rpbg_research_papers';
+    return $wpdb->get_results( "SELECT * FROM $table_name WHERE status = 'approved'" );
+}
+
 function rpbg_update_paper_status( $id, $status, $blog_post_id = 0 ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
@@ -40,9 +43,9 @@ function rpbg_update_paper_status( $id, $status, $blog_post_id = 0 ) {
     $wpdb->update( $table_name, $data, array( 'id' => absint( $id ) ) );
 }
 
-// Delete a research paper record if not published
 function rpbg_delete_research_paper( $id ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
     return $wpdb->delete( $table_name, array( 'id' => absint( $id ) ) );
 }
+?>
