@@ -44,17 +44,7 @@ $social_description = "Discover our latest research-based insights!"; // Dummy s
     </tr>
     <tr>
       <th>Categories</th>
-      <td>
-        <?php
-        if ( ! empty( $categories ) ) {
-            $cat_names = array();
-            foreach ( $categories as $cat ) {
-                $cat_names[] = $cat->name;
-            }
-            echo esc_html( implode( ', ', $cat_names ) );
-        }
-        ?>
-      </td>
+      <td><?php echo esc_html( $paper->categories ); ?></td> <!-- Display categories -->
     </tr>
     <tr>
       <th>Tags</th>
@@ -89,3 +79,4 @@ $social_description = "Discover our latest research-based insights!"; // Dummy s
     <a href="<?php echo esc_url( get_preview_post_link( $post_id ) ); ?>" target="_blank" class="button button-primary">Preview Draft Blog Article</a>
   </p>
 </div>
+<!-- Ensure no trailing whitespace or unintended output -->

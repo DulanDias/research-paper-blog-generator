@@ -7,6 +7,7 @@
         <th>File Path</th>
         <th>Paper Link</th>
         <th>Status</th>
+        <th>Categories</th> <!-- Added Categories column -->
         <th>Blog Post</th>
         <th>Uploaded At</th>
         <th>Actions</th>
@@ -22,6 +23,7 @@
           <td><?php echo esc_html( $paper->file_path ); ?></td>
           <td><?php echo esc_url( $paper->paper_link ); ?></td>
           <td><?php echo esc_html( $paper->status ); ?></td>
+          <td><?php echo esc_html( $paper->categories ); ?></td> <!-- Display categories -->
           <td>
             <?php
             if ( 'published' === $paper->status ) {
@@ -89,3 +91,4 @@
     </tbody>
   </table>
 </div>
+<!-- Ensure no trailing whitespace or unintended output -->

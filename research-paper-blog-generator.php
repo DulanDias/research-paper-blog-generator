@@ -37,6 +37,7 @@ function rpbg_activate_plugin() {
         paper_link varchar(255) DEFAULT '' NOT NULL,
         status varchar(20) DEFAULT 'pending' NOT NULL,
         blog_post_id bigint(20) DEFAULT 0 NOT NULL,
+        categories varchar(255) DEFAULT '' NOT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
         updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
         PRIMARY KEY  (id)
@@ -117,4 +118,5 @@ function rpbg_process_approved_papers() {
         }
     }
 }
-?>
+
+// Ensure no closing PHP tag to prevent unintended output.

@@ -40,7 +40,6 @@ function rpbg_handle_upload() {
     wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
     exit;
 }
-?>
 
 add_action( 'admin_post_rpbg_delete_paper', 'rpbg_handle_delete_paper' );
 function rpbg_handle_delete_paper() {
@@ -235,4 +234,5 @@ function rpbg_set_featured_image( $post_id, $pdf_path ) {
         }
     }
 }
-?>
+
+// Ensure no closing PHP tag to prevent unintended output.

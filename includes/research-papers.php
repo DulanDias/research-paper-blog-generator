@@ -10,7 +10,7 @@ function rpbg_save_research_paper( $file_path, $paper_link, $categories = '' ) {
         'file_path'   => sanitize_text_field( $file_path ),
         'paper_link'  => esc_url_raw( $paper_link ),
         'status'      => 'pending',
-        'categories'  => sanitize_text_field( $categories ),
+        'categories'  => sanitize_text_field( $categories ), // Added categories column
     ) );
     return $wpdb->insert_id;
 }
@@ -48,4 +48,3 @@ function rpbg_delete_research_paper( $id ) {
     $table_name = $wpdb->prefix . 'rpbg_research_papers';
     return $wpdb->delete( $table_name, array( 'id' => absint( $id ) ) );
 }
-?>
