@@ -57,7 +57,7 @@ function rpbg_deactivate_plugin() {
     wp_clear_scheduled_hook( 'rpbg_cron_job' );
 }
 
-// Admin Menus: Dashboard, OpenAI Settings, Scheduler, and Research Papers List
+// Admin Menus: Dashboard, OpenAI Settings, Scheduler, Research Papers List, and Draft Details view.
 add_action( 'admin_menu', 'rpbg_create_admin_menus' );
 function rpbg_create_admin_menus(){
     add_menu_page( 'RP Blog Generator', 'RP Blog Generator', 'manage_options', 'rpbg-main', 'rpbg_main_page_callback', 'dashicons-media-document', 6 );
@@ -65,6 +65,8 @@ function rpbg_create_admin_menus(){
     add_submenu_page( 'rpbg-main', 'Research Papers', 'Research Papers', 'manage_options', 'rpbg-research-papers', 'rpbg_research_papers_page_callback' );
     add_submenu_page( 'rpbg-main', 'OpenAI API Settings', 'OpenAI Settings', 'manage_options', 'rpbg-openai-settings', 'rpbg_openai_settings_callback' );
     add_submenu_page( 'rpbg-main', 'Scheduler', 'Scheduler', 'manage_options', 'rpbg-scheduler', 'rpbg_scheduler_callback' );
+    // Hidden page for draft details view.
+    add_submenu_page( null, 'Draft Details', 'Draft Details', 'manage_options', 'rpbg-draft-details', 'rpbg_draft_details_callback' );
 }
 
 function rpbg_main_page_callback() {
@@ -87,49 +89,30 @@ function rpbg_scheduler_callback() {
     include RPBG_PLUGIN_DIR . 'views/scheduler.php';
 }
 
-// WP-Cron: Process pending research papers
-add_action( 'rpbg_cron_job', 'rpbg_process_pending_papers' );
-function rpbg_process_pending_papers() {
-    $papers = rpbg_get_pending_papers();
+function rpbg_draft_details_callback() {
+    include RPBG_PLUGIN_DIR . 'views/draft-details.php';
+}
+
+// WP-Cron: Process only approved papers
+add_action( 'rpbg_cron_job', 'rpbg_process_approved_papers' );
+function rpbg_process_approved_papers() {
+    $papers = rpbg_get_approved_papers(); // Only approved papers are processed.
     if ( ! empty( $papers ) ) {
         foreach ( $papers as $paper ) {
-            // Generate blog content using the OpenAI API
-            $blog_content = rpbg_generate_blog_content( $paper->file_path, $paper->paper_link );
-            if ( ! $blog_content ) {
-                rpbg_update_paper_status( $paper->id, 'error' );
-                continue;
-            }
-            // Generate a catchy topic/title
-            $post_title = rpbg_generate_topic( $blog_content );
-            // Generate excerpt and tags
-            $post_excerpt = rpbg_generate_excerpt( $blog_content );
-            $post_tags    = rpbg_generate_tags( $blog_content );
-            $default_categories = rpbg_get_default_categories();
-
-            // Determine author: use the user with login "dulandias" if exists, otherwise use current user.
-            $author = get_user_by( 'login', 'dulandias' );
-            $author_id = $author ? $author->ID : get_current_user_id();
-
-            // Create the blog post with default categories, excerpt, tags, and author.
-            $post_id = wp_insert_post( array(
-                'post_title'    => sanitize_text_field( $post_title ),
-                'post_content'  => wp_kses_post( $blog_content ),
-                'post_excerpt'  => wp_strip_all_tags( $post_excerpt ),
-                'post_status'   => 'publish',
-                'post_type'     => 'post',
-                'post_category' => $default_categories,
-                'tags_input'    => $post_tags,
-                'post_author'   => $author_id,
+            // Publish the draft blog post (if not already published)
+            $updated = wp_update_post( array(
+                'ID'          => $paper->blog_post_id,
+                'post_status' => 'publish'
             ) );
-            if ( $post_id ) {
-                // Set featured image using extracted image from the paper
-                rpbg_set_featured_image( $post_id, $paper->file_path );
-                // Post to social media
-                rpbg_post_to_social_media( $post_id, $blog_content );
-                // Mark paper as published.
-                rpbg_update_paper_status( $paper->id, 'published', $post_id );
+            if ( $updated ) {
+                rpbg_update_paper_status( $paper->id, 'published', $paper->blog_post_id );
+                // Post to social media (stub function)
+                $post = get_post( $paper->blog_post_id );
+                if ( $post ) {
+                    rpbg_post_to_social_media( $paper->blog_post_id, $post->post_content );
+                }
             } else {
-                rpbg_update_paper_status( $paper->id, 'error' );
+                rpbg_update_paper_status( $paper->id, 'error', $paper->blog_post_id );
             }
         }
     }
