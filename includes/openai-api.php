@@ -71,7 +71,7 @@ End the output with the following string: \"Read the full paper here: %s\".";
 - \"excerpt\": A short excerpt (around 40 words) summarizing the article.
 - \"tags\": A comma-separated list of relevant SEO-friendly tags.
 - \"socialMediaDescription\": A compelling, human-like description for sharing on social media.
-End the output with the following string: \"Read the full paper here: %s\".";
+End the article with the following string: \"Read the full paper here: %s\".";
         $stored_prompt = get_option( 'rpbg_generation_prompt', $default_prompt );
         $prompt = sprintf( $stored_prompt, $paper_link, $paper_link );
         
