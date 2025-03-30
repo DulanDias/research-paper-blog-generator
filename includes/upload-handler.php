@@ -81,18 +81,28 @@ function rpbg_handle_generate_draft() {
 
     // Generate the structured output using OpenAI API.
     $generated = rpbg_generate_blog_content( $paper->file_path, $paper->paper_link );
-    if ( ! $generated || ! is_array( $generated ) || empty( $generated['article'] ) ) {
+    if ( ! $generated || ! is_array( $generated ) ) {
         rpbg_update_paper_status( $paper->id, 'error' );
         wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
         exit;
     }
 
-    // Use the generated keys; fallback to helper functions if any key is missing.
-    $post_title  = ! empty( $generated['title'] )  ? $generated['title']  : rpbg_generate_topic( $generated['article'] );
+    // Ensure that the required keys exist; if not, treat as error.
+    $required_keys = array('title', 'article', 'excerpt', 'tags', 'socialMediaDescription');
+    foreach ( $required_keys as $key ) {
+        if ( empty( $generated[$key] ) ) {
+            rpbg_update_paper_status( $paper->id, 'error' );
+            wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
+            exit;
+        }
+    }
+
+    // Use the generated output directly.
+    $post_title  = $generated['title'];
     $blog_article = $generated['article'];
-    $post_excerpt = ! empty( $generated['excerpt'] ) ? $generated['excerpt'] : rpbg_generate_excerpt( $generated['article'] );
-    $post_tags    = ! empty( $generated['tags'] )    ? $generated['tags']    : rpbg_generate_tags( $generated['article'] );
-    $social_desc  = ! empty( $generated['socialMediaDescription'] ) ? $generated['socialMediaDescription'] : "Discover our latest research-based insights!";
+    $post_excerpt = $generated['excerpt'];
+    $post_tags    = $generated['tags'];
+    $social_desc  = $generated['socialMediaDescription'];
     $default_categories = rpbg_get_default_categories();
 
     // Determine author: use user "dulandias" if exists.
@@ -113,7 +123,7 @@ function rpbg_handle_generate_draft() {
 
     if ( $post_id ) {
         rpbg_set_featured_image( $post_id, $paper->file_path );
-        // Save social description as post meta.
+        // Save the social media description as post meta.
         update_post_meta( $post_id, '_rpbg_social_description', $social_desc );
         rpbg_update_paper_status( $paper->id, 'draft', $post_id );
     } else {
@@ -123,6 +133,7 @@ function rpbg_handle_generate_draft() {
     wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
     exit;
 }
+
 
 // --- New Action: Approve Draft ---
 add_action( 'admin_post_rpbg_approve_draft', 'rpbg_handle_approve_draft' );

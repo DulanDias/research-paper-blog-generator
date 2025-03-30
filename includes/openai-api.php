@@ -5,49 +5,98 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Generate the full blog content using the OpenAI API.
- * Reads the FULL PDF text.
- * Returns the parsed JSON output as an associative array.
+ *
+ * - In PDF mode (if $pdf_path is not empty), the PDF file is sent as an attachment along with the prompt.
+ *   The prompt instructs the model to convert the attached PDF to text as needed and generate a structured JSON output.
+ * - In Citation mode (if $pdf_path is empty), the paper citation (link) is passed directly with the prompt.
+ *
+ * The output is expected to be a JSON string that, when decoded, contains the keys:
+ *   "title", "article", "excerpt", "tags", "socialMediaDescription".
+ *
+ * Returns the parsed JSON output as an associative array, or false on failure.
  */
 function rpbg_generate_blog_content( $pdf_path, $paper_link ) {
-    // Extract full text from the PDF.
-    $full_text = rpbg_extract_full_pdf_text( $pdf_path );
-    
-    // Detailed default prompt instructing the model to output JSON.
-    $default_prompt = "Using the following research paper text:\n\n```\n%s\n```\n\nPlease generate an output in JSON format with the following keys:\n- \"title\": A catchy blog post title (max 10 words).\n- \"article\": A well-structured, human-like, engaging blog article that is SEO-optimized. Use proper HTML formatting for paragraphs and headings.\n- \"excerpt\": A short excerpt (around 40 words) summarizing the article.\n- \"tags\": A comma-separated list of relevant SEO-friendly tags.\n- \"socialMediaDescription\": A compelling, human-like description for sharing on social media.\n\nEnd the output with the following string: \"Read the full paper here: %s\".";
-    
-    $stored_prompt = get_option( 'rpbg_generation_prompt', $default_prompt );
-    $prompt = sprintf( $stored_prompt, $full_text, $paper_link );
-    
-    // Use the model selected from settings.
+    // Use the selected model from settings.
     $model = get_option( 'rpbg_openai_model', 'davinci' );
-    
     $api_key = get_option( 'rpbg_openai_api_key' );
     if ( empty( $api_key ) ) {
         return false;
     }
     
-    $args = array(
-        'headers' => array(
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type'  => 'application/json',
-        ),
-        'body'    => json_encode( array(
+    if ( ! empty( $pdf_path ) ) {
+        // PDF Mode: Build a prompt that instructs the model to use the attached PDF.
+        $default_prompt_pdf = "Please use the attached PDF file as the source. Convert the PDF content to text as needed and generate an output in JSON format with the following keys:
+- \"title\": A catchy blog post title (max 10 words).
+- \"article\": A well-structured, human-like, engaging blog article that is SEO-optimized. Use proper HTML formatting for paragraphs and headings.
+- \"excerpt\": A short excerpt (around 40 words) summarizing the article.
+- \"tags\": A comma-separated list of relevant SEO-friendly tags.
+- \"socialMediaDescription\": A compelling, human-like description for sharing on social media.
+End the output with the following string: \"Read the full paper here: %s\".";
+        
+        $stored_prompt = get_option( 'rpbg_generation_prompt', $default_prompt_pdf );
+        $prompt = sprintf( $stored_prompt, $paper_link );
+        
+        // Build a multipart/form-data POST request using cURL.
+        $endpoint = 'https://api.openai.com/v1/engines/' . $model . '/completions';
+        $pdfFile = curl_file_create( $pdf_path, mime_content_type( $pdf_path ), basename( $pdf_path ) );
+        $postFields = array(
             'prompt'      => $prompt,
             'max_tokens'  => 800,
             'temperature' => 0.7,
-        ) ),
-        'timeout' => 60,
-    );
-    
-    // Use the selected model in the endpoint URL.
-    $endpoint = 'https://api.openai.com/v1/engines/' . $model . '/completions';
-    $response = wp_remote_post( $endpoint, $args );
-    if ( is_wp_error( $response ) ) {
-        return false;
+            'file'        => $pdfFile,
+        );
+        
+        $ch = curl_init();
+        curl_setopt( $ch, CURLOPT_URL, $endpoint );
+        curl_setopt( $ch, CURLOPT_POST, true );
+        curl_setopt( $ch, CURLOPT_POSTFIELDS, $postFields );
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt( $ch, CURLOPT_HTTPHEADER, array(
+            "Authorization: Bearer $api_key",
+        ) );
+        
+        $response = curl_exec( $ch );
+        if ( curl_errno( $ch ) ) {
+            error_log( 'cURL error: ' . curl_error( $ch ) );
+            curl_close( $ch );
+            return false;
+        }
+        curl_close( $ch );
+        
+    } else {
+        // Citation Mode: Pass the citation directly.
+        $default_prompt = "Using the following research paper citation:\n\n%s\n\nPlease generate an output in JSON format with the following keys:
+- \"title\": A catchy blog post title (max 10 words).
+- \"article\": A well-structured, human-like, engaging blog article that is SEO-optimized. Use proper HTML formatting for paragraphs and headings.
+- \"excerpt\": A short excerpt (around 40 words) summarizing the article.
+- \"tags\": A comma-separated list of relevant SEO-friendly tags.
+- \"socialMediaDescription\": A compelling, human-like description for sharing on social media.
+End the output with the following string: \"Read the full paper here: %s\".";
+        $stored_prompt = get_option( 'rpbg_generation_prompt', $default_prompt );
+        $prompt = sprintf( $stored_prompt, $paper_link, $paper_link );
+        
+        $args = array(
+            'headers' => array(
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+            ),
+            'body'    => json_encode( array(
+                'prompt'      => $prompt,
+                'max_tokens'  => 800,
+                'temperature' => 0.7,
+            ) ),
+            'timeout' => 60,
+        );
+        
+        $endpoint = 'https://api.openai.com/v1/engines/' . $model . '/completions';
+        $response = wp_remote_post( $endpoint, $args );
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+        $response = wp_remote_retrieve_body( $response );
     }
     
-    $body = wp_remote_retrieve_body( $response );
-    $result = json_decode( $body, true );
+    $result = json_decode( $response, true );
     if ( empty( $result['choices'][0]['text'] ) ) {
         return false;
     }
@@ -55,48 +104,49 @@ function rpbg_generate_blog_content( $pdf_path, $paper_link ) {
     // Attempt to decode the output as JSON.
     $generated = json_decode( trim( $result['choices'][0]['text'] ), true );
     if ( json_last_error() !== JSON_ERROR_NONE || ! is_array( $generated ) ) {
+        error_log( 'Error decoding generated JSON: ' . json_last_error_msg() );
         return false;
+    }
+    
+    // Ensure all required keys are present.
+    $required_keys = array('title', 'article', 'excerpt', 'tags', 'socialMediaDescription');
+    foreach ( $required_keys as $key ) {
+        if ( empty( $generated[$key] ) ) {
+            error_log("Missing required key in generated output: " . $key);
+            return false;
+        }
     }
     
     return $generated;
 }
 
 /**
- * Extract full text from a PDF file.
- * This function attempts to use the 'pdftotext' utility to read the full content.
- * If it fails, it returns a dummy string.
+ * Fallback helper to generate a title (if needed).
+ * (Not used because all keys must come from the prompt output.)
  */
-function rpbg_extract_full_pdf_text( $pdf_path ) {
-    if ( file_exists( $pdf_path ) ) {
-        $command = 'pdftotext ' . escapeshellarg( $pdf_path ) . ' -';
-        $output = shell_exec( $command );
-        if ( ! empty( $output ) ) {
-            return trim( $output );
-        }
-    }
-    return "Full text from the research paper could not be extracted.";
-}
-
-// The following helper functions remain largely unchanged.
 function rpbg_generate_topic( $content ) {
-    $sentences = preg_split( '/(\.|\?|\!)(\s)/', $content, 2, PREG_SPLIT_DELIM_CAPTURE );
-    return isset( $sentences[0] ) ? wp_trim_words( $sentences[0], 10, '...' ) : 'New Research Insight';
+    return ''; // Not used.
 }
 
+/**
+ * Fallback helper to generate an excerpt (if needed).
+ * (Not used because all keys must come from the prompt output.)
+ */
 function rpbg_generate_excerpt( $content, $word_limit = 40 ) {
-    $words = explode( ' ', wp_strip_all_tags( $content ) );
-    if ( count( $words ) > $word_limit ) {
-        $excerpt = implode( ' ', array_slice( $words, 0, $word_limit ) ) . '...';
-    } else {
-        $excerpt = $content;
-    }
-    return $excerpt;
+    return ''; // Not used.
 }
 
+/**
+ * Fallback helper to generate tags (if needed).
+ * (Not used because all keys must come from the prompt output.)
+ */
 function rpbg_generate_tags( $content ) {
-    return "Artificial Intelligence, Research, Innovation, Technology";
+    return ''; // Not used.
 }
 
+/**
+ * Get default category IDs for "Artificial Intelligence" and "Research".
+ */
 function rpbg_get_default_categories() {
     $cat1 = get_cat_ID( 'Artificial Intelligence' );
     if ( ! $cat1 ) {
