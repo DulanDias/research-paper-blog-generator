@@ -11,7 +11,9 @@ function rpbg_register_settings() {
     // Generation prompt setting with a default prompt
     register_setting( 'rpbg_settings_group', 'rpbg_generation_prompt' );
     
-    // Scheduler setting
+    // Scheduler settings
     register_setting( 'rpbg_scheduler_options_group', 'rpbg_processing_frequency' );
+    register_setting( 'rpbg_scheduler_options_group', 'rpbg_processing_time' );
+    register_setting( 'rpbg_scheduler_options_group', 'rpbg_timezone' );
 }
 ?>
