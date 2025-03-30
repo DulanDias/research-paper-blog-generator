@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Existing upload handler.
+// --- Upload Handler (unchanged) ---
 add_action( 'admin_post_rpbg_upload_paper', 'rpbg_handle_upload' );
 function rpbg_handle_upload() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -11,7 +11,6 @@ function rpbg_handle_upload() {
     }
     check_admin_referer( 'rpbg_upload_nonce_action', 'rpbg_upload_nonce' );
 
-    // Validate file upload.
     if ( isset( $_FILES['research_paper'] ) && ! empty( $_FILES['research_paper']['name'] ) ) {
         $allowed_types = array( 'application/pdf' );
         if ( ! in_array( $_FILES['research_paper']['type'], $allowed_types ) ) {
@@ -26,17 +25,12 @@ function rpbg_handle_upload() {
         $file_path = '';
     }
 
-    // Sanitize paper link.
     $paper_link = isset( $_POST['paper_link'] ) ? esc_url_raw( $_POST['paper_link'] ) : '';
-
-    // Save the research paper record with status "pending".
     rpbg_save_research_paper( $file_path, $paper_link );
-
     wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
     exit;
 }
 
-// Delete handler.
 add_action( 'admin_post_rpbg_delete_paper', 'rpbg_handle_delete_paper' );
 function rpbg_handle_delete_paper() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -53,7 +47,6 @@ function rpbg_handle_delete_paper() {
 }
 
 // --- New Action: Generate Draft ---
-// This creates a blog post as DRAFT for a paper with status "pending".
 add_action( 'admin_post_rpbg_generate_draft', 'rpbg_handle_generate_draft' );
 function rpbg_handle_generate_draft() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -75,27 +68,30 @@ function rpbg_handle_generate_draft() {
         exit;
     }
 
-    // Generate blog content using the OpenAI API.
-    $blog_content = rpbg_generate_blog_content( $paper->file_path, $paper->paper_link );
-    if ( ! $blog_content ) {
+    // Generate the structured output using OpenAI API.
+    $generated = rpbg_generate_blog_content( $paper->file_path, $paper->paper_link );
+    if ( ! $generated || ! is_array( $generated ) || empty( $generated['article'] ) ) {
         rpbg_update_paper_status( $paper->id, 'error' );
         wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
         exit;
     }
-    // Generate title, excerpt, tags, and get default categories.
-    $post_title = rpbg_generate_topic( $blog_content );
-    $post_excerpt = rpbg_generate_excerpt( $blog_content );
-    $post_tags = rpbg_generate_tags( $blog_content );
+
+    // Use the generated keys; fallback to helper functions if any key is missing.
+    $post_title  = ! empty( $generated['title'] )  ? $generated['title']  : rpbg_generate_topic( $generated['article'] );
+    $blog_article = $generated['article'];
+    $post_excerpt = ! empty( $generated['excerpt'] ) ? $generated['excerpt'] : rpbg_generate_excerpt( $generated['article'] );
+    $post_tags    = ! empty( $generated['tags'] )    ? $generated['tags']    : rpbg_generate_tags( $generated['article'] );
+    $social_desc  = ! empty( $generated['socialMediaDescription'] ) ? $generated['socialMediaDescription'] : "Discover our latest research-based insights!";
     $default_categories = rpbg_get_default_categories();
 
-    // Determine author: use "dulandias" if exists.
+    // Determine author: use user "dulandias" if exists.
     $author = get_user_by( 'login', 'dulandias' );
     $author_id = $author ? $author->ID : get_current_user_id();
 
     // Create the blog post as a DRAFT.
     $post_id = wp_insert_post( array(
         'post_title'    => sanitize_text_field( $post_title ),
-        'post_content'  => wp_kses_post( $blog_content ),
+        'post_content'  => wp_kses_post( $blog_article ),
         'post_excerpt'  => wp_strip_all_tags( $post_excerpt ),
         'post_status'   => 'draft',
         'post_type'     => 'post',
@@ -105,9 +101,9 @@ function rpbg_handle_generate_draft() {
     ) );
 
     if ( $post_id ) {
-        // Optionally set featured image.
         rpbg_set_featured_image( $post_id, $paper->file_path );
-        // Update paper status to "draft" and save the blog post ID.
+        // Save social description as post meta.
+        update_post_meta( $post_id, '_rpbg_social_description', $social_desc );
         rpbg_update_paper_status( $paper->id, 'draft', $post_id );
     } else {
         rpbg_update_paper_status( $paper->id, 'error' );
@@ -118,7 +114,6 @@ function rpbg_handle_generate_draft() {
 }
 
 // --- New Action: Approve Draft ---
-// Marks a draft paper as approved. Only papers with status "draft" can be approved.
 add_action( 'admin_post_rpbg_approve_draft', 'rpbg_handle_approve_draft' );
 function rpbg_handle_approve_draft() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -140,15 +135,12 @@ function rpbg_handle_approve_draft() {
         exit;
     }
     
-    // Update status to "approved" (blog post remains as draft).
     rpbg_update_paper_status( $paper->id, 'approved', $paper->blog_post_id );
-    
     wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
     exit;
 }
 
 // --- New Action: Publish Draft Now ---
-// Publishes a draft blog post that has been approved.
 add_action( 'admin_post_rpbg_publish_draft', 'rpbg_handle_publish_draft' );
 function rpbg_handle_publish_draft() {
     if ( ! current_user_can( 'manage_options' ) ) {
@@ -170,7 +162,6 @@ function rpbg_handle_publish_draft() {
         exit;
     }
     
-    // Update the draft blog post status to "publish".
     $updated = wp_update_post( array(
         'ID'          => $paper->blog_post_id,
         'post_status' => 'publish'
@@ -178,6 +169,9 @@ function rpbg_handle_publish_draft() {
     
     if ( $updated ) {
         rpbg_update_paper_status( $paper->id, 'published', $paper->blog_post_id );
+        // When publishing, pass the saved social description to social media posting.
+        $social_desc = get_post_meta( $paper->blog_post_id, '_rpbg_social_description', true );
+        rpbg_post_to_social_media( $paper->blog_post_id, $social_desc );
     } else {
         rpbg_update_paper_status( $paper->id, 'error', $paper->blog_post_id );
     }
@@ -191,7 +185,7 @@ function rpbg_set_featured_image( $post_id, $pdf_path ) {
     if ( class_exists( 'Imagick' ) ) {
         try {
             $imagick = new Imagick();
-            $imagick->readImage( $pdf_path . '[0]' ); // Read first page of PDF
+            $imagick->readImage( $pdf_path . '[0]' );
             $width  = $imagick->getImageWidth();
             $height = $imagick->getImageHeight();
             $crop_height = floor( $height * 0.3 );
