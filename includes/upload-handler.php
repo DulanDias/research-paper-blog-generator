@@ -87,7 +87,11 @@ function rpbg_handle_generate_paper() {
     $post_tags    = rpbg_generate_tags( $blog_content );
     $default_categories = rpbg_get_default_categories();
 
-    // Insert the blog post into WordPress with default categories, excerpt, and tags
+    // Determine author: use the user with login "dulandias" if exists, otherwise use current user.
+    $author = get_user_by( 'login', 'dulandias' );
+    $author_id = $author ? $author->ID : get_current_user_id();
+
+    // Insert the blog post into WordPress with default categories, excerpt, tags, and author.
     $post_id = wp_insert_post( array(
         'post_title'    => sanitize_text_field( $post_title ),
         'post_content'  => wp_kses_post( $blog_content ),
@@ -96,6 +100,7 @@ function rpbg_handle_generate_paper() {
         'post_type'     => 'post',
         'post_category' => $default_categories,
         'tags_input'    => $post_tags,
+        'post_author'   => $author_id,
     ) );
 
     if ( $post_id ) {

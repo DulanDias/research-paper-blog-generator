@@ -1,10 +1,11 @@
 <?php
 /*
 Plugin Name: Research Paper Blog Generator
-Plugin URI: https://example.com/
+Plugin URI: https://dulandias.com/
 Description: Automatically generate engaging, SEO‑optimized blog articles from uploaded research papers with OpenAI integration and social media auto-posting.
 Version: 1.0
-Author: Your Name
+Author: Dulan Dias
+Author URI: https://dulandias.com/
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -105,7 +106,11 @@ function rpbg_process_pending_papers() {
             $post_tags    = rpbg_generate_tags( $blog_content );
             $default_categories = rpbg_get_default_categories();
 
-            // Create the blog post with default categories, excerpt, and tags
+            // Determine author: use the user with login "dulandias" if exists, otherwise use current user.
+            $author = get_user_by( 'login', 'dulandias' );
+            $author_id = $author ? $author->ID : get_current_user_id();
+
+            // Create the blog post with default categories, excerpt, tags, and author.
             $post_id = wp_insert_post( array(
                 'post_title'    => sanitize_text_field( $post_title ),
                 'post_content'  => wp_kses_post( $blog_content ),
@@ -114,6 +119,7 @@ function rpbg_process_pending_papers() {
                 'post_type'     => 'post',
                 'post_category' => $default_categories,
                 'tags_input'    => $post_tags,
+                'post_author'   => $author_id,
             ) );
             if ( $post_id ) {
                 // Set featured image using extracted image from the paper
