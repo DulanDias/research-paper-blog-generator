@@ -50,6 +50,62 @@ function rpbg_handle_delete_paper() {
     exit;
 }
 
+add_action( 'admin_post_rpbg_generate_paper', 'rpbg_handle_generate_paper' );
+function rpbg_handle_generate_paper() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( 'Unauthorized user' );
+    }
+    check_admin_referer( 'rpbg_generate_nonce_action', 'rpbg_generate_nonce' );
+
+    $paper_id = isset( $_POST['paper_id'] ) ? absint( $_POST['paper_id'] ) : 0;
+    if ( ! $paper_id ) {
+        wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
+        exit;
+    }
+
+    // Retrieve the paper record from custom table
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'rpbg_research_papers';
+    $paper = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE id = %d", $paper_id ) );
+    if ( ! $paper || ( 'published' === $paper->status ) ) {
+        wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
+        exit;
+    }
+
+    // Generate blog content using the OpenAI API
+    $blog_content = rpbg_generate_blog_content( $paper->file_path, $paper->paper_link );
+    if ( ! $blog_content ) {
+        rpbg_update_paper_status( $paper->id, 'error' );
+        wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
+        exit;
+    }
+
+    // Generate a catchy topic/title
+    $post_title = rpbg_generate_topic( $blog_content );
+
+    // Insert the blog post into WordPress
+    $post_id = wp_insert_post( array(
+        'post_title'   => sanitize_text_field( $post_title ),
+        'post_content' => wp_kses_post( $blog_content ),
+        'post_status'  => 'publish',
+        'post_type'    => 'post'
+    ) );
+
+    if ( $post_id ) {
+        // Set the featured image from the PDF
+        rpbg_set_featured_image( $post_id, $paper->file_path );
+        // Post to social media (stub function; implement per API docs)
+        rpbg_post_to_social_media( $post_id, $blog_content );
+        // Update the paper status to published with blog post ID
+        rpbg_update_paper_status( $paper->id, 'published', $post_id );
+    } else {
+        rpbg_update_paper_status( $paper->id, 'error' );
+    }
+
+    wp_redirect( admin_url( 'admin.php?page=rpbg-research-papers' ) );
+    exit;
+}
+
 function rpbg_set_featured_image( $post_id, $pdf_path ) {
     if ( class_exists( 'Imagick' ) ) {
         try {

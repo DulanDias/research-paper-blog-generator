@@ -35,7 +35,15 @@
           <td><?php echo esc_html( $paper->created_at ); ?></td>
           <td>
             <?php if ( 'pending' === $paper->status || 'error' === $paper->status ) : ?>
-              <form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" onsubmit="return confirm('Are you sure you want to delete this paper?');">
+              <!-- Generate & Publish Now Button -->
+              <form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:inline;" onsubmit="return confirm('Are you sure you want to generate and publish this paper immediately?');">
+                <?php wp_nonce_field( 'rpbg_generate_nonce_action', 'rpbg_generate_nonce' ); ?>
+                <input type="hidden" name="action" value="rpbg_generate_paper">
+                <input type="hidden" name="paper_id" value="<?php echo absint( $paper->id ); ?>">
+                <?php submit_button( 'Generate & Publish Now', 'primary', 'submit', false ); ?>
+              </form>
+              <!-- Delete Button -->
+              <form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this paper?');">
                 <?php wp_nonce_field( 'rpbg_delete_nonce_action', 'rpbg_delete_nonce' ); ?>
                 <input type="hidden" name="action" value="rpbg_delete_paper">
                 <input type="hidden" name="paper_id" value="<?php echo absint( $paper->id ); ?>">
